@@ -440,9 +440,9 @@ module.exports = function (RED) {
                 return node.error(RED._("ethip.in.error.missingconfig"));
             }
     
-            const configTagName = config.variable ? (
-                config.program ? `${config.program}:${config.variable}` : config.variable
-            ) : null; 
+            function onEndpointStatus(s) {
+                node.status(generateStatus(s.status, statusVal));
+            } 
             
             let tagName = `${config.program}:${config.variable}`;
             tag = node.endpoint.getTag(tagName);
