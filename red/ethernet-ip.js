@@ -393,20 +393,8 @@ module.exports = function (RED) {
         function onEndpointStatus(s) {
             node.status(generateStatus(s.status, statusVal));
         }
-		
-		let tagName = `${config.program}:${config.variable}`;
-        tag = node.endpoint.getTag(tagName);
 
         function onNewMsg(msg, send, done) {
-			if (msg.program && msg.variable) {
-				tagName = `${msg.program}:${msg.variable}`;
-				tag = node.endpoint.getTag(tagName);
-			} else {
-				tagName = `${config.program}:${config.variable}`;
-				tag = node.endpoint.getTag(tagName);
-            }
-			
-			
             //the actual write will be performed by the scan cycle
             //of the Controller on the endpoint
             tag.value = statusVal = msg.payload;
@@ -416,6 +404,9 @@ module.exports = function (RED) {
 
             node.status(generateStatus(node.endpoint.getStatus(), statusVal));
         }
+
+        let tagName = `${config.program}:${config.variable}`;
+        tag = node.endpoint.getTag(tagName);
 
         if (!tag) {
             //shouldn't reach here. But just in case..
@@ -436,4 +427,57 @@ module.exports = function (RED) {
 
     }
     RED.nodes.registerType("eth-ip out", EthIpOut);
+
+        // ---------- Ethernet-IP Out Custom ----------
+
+        function EthIpOutCustom(config) {
+            var node = this;
+            var statusVal, tag;
+            RED.nodes.createNode(this, config);
+    
+            node.endpoint = RED.nodes.getNode(config.endpoint);
+            if (!node.endpoint) {
+                return node.error(RED._("ethip.in.error.missingconfig"));
+            }
+    
+            const configTagName = config.variable ? (
+                config.program ? `${config.program}:${config.variable}` : config.variable
+            ) : null; 
+            
+            let tagName = `${config.program}:${config.variable}`;
+            tag = node.endpoint.getTag(tagName);
+    
+            function onNewMsg(msg, send, done) {
+                if (msg.program && msg.variable) {
+                    tagName = `${msg.program}:${msg.variable}`;
+                    tag = node.endpoint.getTag(tagName);
+                } else {
+                    tagName = `${config.program}:${config.variable}`;
+                    tag = node.endpoint.getTag(tagName);
+                }
+                tag.value = statusVal = msg.payload;
+                done();
+    
+                node.status(generateStatus(node.endpoint.getStatus(), statusVal));
+            }
+    
+            if (!tag) {
+                //shouldn't reach here. But just in case..
+                return node.error(RED._("ethip.error.invalidvar", {
+                    varname: tagName
+                }));
+            }
+    
+            node.status(generateStatus("connecting", ""));
+    
+            nrInputShim(node, onNewMsg);
+            node.endpoint.on('__STATUS__', onEndpointStatus);
+    
+            node.on('close', function (done) {
+                node.endpoint.removeListener('__STATUS__', onEndpointStatus);
+                done();
+            });
+    
+        }
+        RED.nodes.registerType("eth-ip out custom", EthIpOutCustom);
 };
